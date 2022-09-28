@@ -14,5 +14,5 @@ add dependencies to cargo.toml
 entrypoint : macro
 
 ## 5  Build
-cd into the folder containing lib.rs cd src/program/src
+cd into the folder containing lib.rs cd /program/src
 `cargo build-bpf`
