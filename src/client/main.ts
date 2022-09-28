@@ -1,40 +1,62 @@
-import {
-    Keypair,
-    Connection,
-    PublicKey,
-    LAMPORTS_PER_SOL,
-    TransactionInstruction,
-    Transaction,
-    sendAndConfirmTransaction,
-    clusterApiUrl
-} from '@solana/web3.js';
-import fs from 'mz/fs';
-import path from 'path';
+const web3 = require("@solana/web3.js");
 
-const PROGRAM_KEYPAIR_PATH = '/Users/sasangaedirisinghe/.config/solana/id.json';
+const SOLANA_CLUSTER = "devnet";
+const PROGRAM_ID = "HbFqzoUsGo8eHDLRYGEXxZeEVY85csfdZ8GyErvjE71X";
 
 async function main() {
-    console.log("Launching client...");
-    const PROGRAM_ID = "bFqzoUsGo8eHDLRYGEXxZeEVY85csfdZ8GyErvjE71X";
-    const SOLANA_CLUSTER = "devnet";
-    const KEYPAIR_PATH = "/Users/sasangaedirisinghe/.config/solana/id.json";
+    // create a new connection to the Solana blockchain
+    const connection = new web3.Connection(web3.clusterApiUrl(SOLANA_CLUSTER));
 
-    /*
-    Connect to Solana DEV net
-    */
-    let connection = new Connection('https://api.devnet.solana.com', 'confirmed');
+    // create a "throw away" wallet for testing
+    let payer = web3.Keypair.generate();
+    console.log("Generated payer address:", payer.publicKey.toBase58());
 
-    /*
-    Get our program's public key
-    */
-    const secretKeyString = await fs.readFile(PROGRAM_KEYPAIR_PATH, { encoding: 'utf8' });
-    const secretKey = Uint8Array.from(JSON.parse(secretKeyString));
-    const programKeypair = Keypair.fromSecretKey(secretKey);
-    let programId: PublicKey = programKeypair.publicKey;
+    // fund the "throw away" wallet via an airdrop
+    console.log("Requesting airdrop...");
+    let airdropSignature = await connection.requestAirdrop(
+        payer.publicKey,
+        web3.LAMPORTS_PER_SOL,
+    );
 
-    /*
-    Generate an account (keypair) to transact with our program
-    */
+    // wait for the airdrop to be completed
+    await connection.confirmTransaction(airdropSignature);
+
+    // log the signature to the console
+    console.log(
+        "Airdrop submitted:",
+        `https://explorer.solana.com/tx/${airdropSignature}?cluster=${SOLANA_CLUSTER}`,
+    );
+    // create an empty transaction
+    const transaction = new web3.Transaction();
+
+    // add a single instruction to the transaction
+    transaction.add(
+        new web3.TransactionInstruction({
+            keys: [
+                {
+                    pubkey: payer.publicKey,
+                    isSigner: true,
+                    isWritable: false,
+                },
+                {
+                    pubkey: web3.SystemProgram.programId,
+                    isSigner: false,
+                    isWritable: false,
+                },
+            ],
+            programId: new web3.PublicKey(PROGRAM_ID),
+        }),
+    );
+
+    // submit the transaction to the cluster
+    console.log("Sending transaction...");
+    let txid = await web3.sendAndConfirmTransaction(connection, transaction, [
+        payer,
+    ]);
+    console.log(
+        "Transaction submitted:",
+        `https://explorer.solana.com/tx/${txid}?cluster=${SOLANA_CLUSTER}`,
+    );
 }
 
 main().then(
